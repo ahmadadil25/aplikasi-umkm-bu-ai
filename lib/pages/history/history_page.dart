@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../core/utils/date_helper.dart';
+import '../../core/utils/currency_formatter.dart';
 import '../../services/transaction_service.dart';
+import '../../models/transaction_model.dart';
 import '../../widgets/summary_card.dart';
 
 class HistoryPage extends StatefulWidget {
@@ -29,39 +31,47 @@ class _HistoryPageState extends State<HistoryPage> {
 
   void _showDetailDialog(String datePrefix) async {
     final summary = await _txService.getDailySummary(datePrefix);
+    final transactions = await _txService.getDailyTransactions(datePrefix); // Ambil detail
     
-    // Controller untuk edit
-    final editSalesCtrl = TextEditingController(text: summary['sales'].toString());
-    final editExpenseCtrl = TextEditingController(text: summary['expense'].toString());
-
     if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: Text('Detail ${DateHelper.formatToId(datePrefix)}'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SummaryCard(
-                  sales: summary['sales'] ?? 0,
-                  expense: summary['expense'] ?? 0,
-                  net: summary['net'] ?? 0,
-                ),
-                const Divider(),
-                const Text('Edit Total Hari Ini:'),
-                TextField(
-                  controller: editSalesCtrl,
-                  decoration: const InputDecoration(labelText: 'Total Penjualan Baru'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: editExpenseCtrl,
-                  decoration: const InputDecoration(labelText: 'Total Pengeluaran Baru'),
-                  keyboardType: TextInputType.number,
-                ),
-              ],
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SummaryCard(
+                    sales: summary['sales'] ?? 0,
+                    expense: summary['expense'] ?? 0,
+                    net: summary['net'] ?? 0,
+                  ),
+                  const Divider(height: 30, thickness: 1),
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('Daftar Transaksi:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(height: 10),
+                  // List Transaksi Detail dengan Deskripsi
+                  ...transactions.map((tx) => ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: Icon(
+                      tx.type == 'sale' ? Icons.arrow_downward : Icons.arrow_upward,
+                      color: tx.type == 'sale' ? Colors.green : Colors.red,
+                    ),
+                    title: Text(tx.description, style: const TextStyle(fontSize: 14)), // Tampilkan Deskripsi
+                    subtitle: Text(CurrencyFormatter.formatRupiah(tx.amount)),
+                    trailing: Text(
+                      tx.type == 'sale' ? '+In' : '-Out',
+                      style: TextStyle(color: tx.type == 'sale' ? Colors.green : Colors.red, fontSize: 10),
+                    ),
+                  )).toList(),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -75,17 +85,9 @@ class _HistoryPageState extends State<HistoryPage> {
               },
               child: const Text('Hapus Data Hari Ini', style: TextStyle(color: Colors.red)),
             ),
-            ElevatedButton(
-              onPressed: () async {
-                int newS = int.tryParse(editSalesCtrl.text) ?? 0;
-                int newE = int.tryParse(editExpenseCtrl.text) ?? 0;
-                await _txService.replaceDailyTransactions(datePrefix, newS, newE);
-                if (mounted) {
-                  Navigator.pop(context);
-                  _loadDates();
-                }
-              },
-              child: const Text('Simpan Perubahan'),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tutup'),
             ),
           ],
         );
@@ -107,7 +109,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   child: ListTile(
                     title: Text(DateHelper.formatToId(date), style: const TextStyle(fontWeight: FontWeight.bold)),
-                    subtitle: const Text('Ketuk untuk melihat detail atau mengedit'),
+                    subtitle: const Text('Ketuk untuk melihat detail transaksi'),
                     trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                     onTap: () => _showDetailDialog(date),
                   ),

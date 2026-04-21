@@ -1,13 +1,16 @@
+// Perbarui transaction_model.dart
 class TransactionModel {
   final int? id;
   final String type; // 'sale' atau 'expense'
   final int amount;
+  final String description; // Tambahkan ini
   final String createdAt;
 
   TransactionModel({
     this.id,
     required this.type,
     required this.amount,
+    required this.description,
     required this.createdAt,
   });
 
@@ -16,6 +19,7 @@ class TransactionModel {
       'id': id,
       'type': type,
       'amount': amount,
+      'description': description,
       'created_at': createdAt,
     };
   }
@@ -25,6 +29,7 @@ class TransactionModel {
       id: map['id'],
       type: map['type'],
       amount: map['amount'],
+      description: map['description'] ?? '',
       createdAt: map['created_at'],
     );
   }

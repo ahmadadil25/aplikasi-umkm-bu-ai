@@ -9,7 +9,7 @@ class LocalDbService {
 
   Future<Database> get database async {
     if (_database != null) return _database!;
-    _database = await _initDB('ckas_database.db');
+    _database = await _initDB('ckas.db');
     return _database!;
   }
 
@@ -17,23 +17,29 @@ class LocalDbService {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
+    // KUNCI UTAMA: Ubah version menjadi 2 agar SQLite tahu ada pembaruan
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, 
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
+  // Fungsi ini berjalan JIKA database belum pernah dibuat sama sekali (Install Baru)
   Future _createDB(Database db, int version) async {
+    // 1. Buat tabel transactions (Sudah termasuk kolom description)
     await db.execute('''
       CREATE TABLE transactions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         type TEXT NOT NULL,
         amount INTEGER NOT NULL,
+        description TEXT NOT NULL,
         created_at TEXT NOT NULL
       )
     ''');
 
+    // 2. Buat tabel reminders
     await db.execute('''
       CREATE TABLE reminders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -44,8 +50,13 @@ class LocalDbService {
     ''');
   }
 
-  Future close() async {
-    final db = await instance.database;
-    db.close();
+  // Fungsi ini berjalan JIKA database versi lama sudah ada, dan kita naikkan version-nya
+  Future _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      // Jika user pindah dari versi 1 ke versi 2, tambahkan kolom description ke tabel lama
+      await db.execute(
+        "ALTER TABLE transactions ADD COLUMN description TEXT DEFAULT '-';"
+      );
+    }
   }
 }
