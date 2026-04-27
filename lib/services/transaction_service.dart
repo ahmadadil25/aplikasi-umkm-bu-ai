@@ -97,4 +97,19 @@ class TransactionService {
     final db = await dbService.database;
     await db.delete('transactions', where: 'created_at LIKE ?', whereArgs: ['$datePrefix%']);
   }
+  // Tambahkan di dalam class TransactionService Anda
+Future<int> updateTransaction(int id, TransactionModel updatedTx) async {
+  final db = await LocalDbService.instance.database;
+  return await db.update(
+    'transactions',
+    {
+      'type': updatedTx.type,
+      'amount': updatedTx.amount,
+      'description': updatedTx.description,
+    },
+    where: 'id = ?',
+    whereArgs: [id],
+  );
 }
+}
+
