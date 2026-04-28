@@ -140,4 +140,24 @@ class TransactionService {
     
     return result;
   }
+
+  // Tambahkan di dalam class TransactionService
+Future<List<TransactionModel>> getRecentTransactions(int limit) async {
+  final db = await LocalDbService.instance.database;
+  final List<Map<String, dynamic>> maps = await db.query(
+    'transactions',
+    orderBy: 'created_at DESC',
+    limit: limit,
+  );
+  
+  return List.generate(maps.length, (i) {
+    return TransactionModel(
+      id: maps[i]['id'],
+      type: maps[i]['type'],
+      amount: maps[i]['amount'],
+      description: maps[i]['description'],
+      createdAt: maps[i]['created_at'],
+    );
+  });
+}
 }

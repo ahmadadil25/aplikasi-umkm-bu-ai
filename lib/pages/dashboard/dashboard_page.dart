@@ -8,6 +8,7 @@ import '../../services/transaction_service.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/custom_text_field.dart';
 import '../history/history_page.dart';
+import '../reminder/add_reminder_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({Key? key}) : super(key: key);
@@ -25,17 +26,17 @@ class _DashboardPageState extends State<DashboardPage> {
   int _todayExpense = 0;
   int _todayNet = 0;
   List<Map<String, dynamic>> _weeklyData = [];
-  List<Map<String, dynamic>> _monthlyData = []; // Data untuk grafik bulanan
+  List<Map<String, dynamic>> _monthlyData = []; 
+  List<TransactionModel> _recentTransactions = []; // Data transaksi terbaru
   
   String _selectedType = 'sale';
-  bool _isVisible = false; // Untuk animasi fade-in
-  bool _isMonthly = false; // Toggle mode grafik (Mingguan/Bulanan)
+  bool _isVisible = false; 
+  bool _isMonthly = false; 
 
   @override
   void initState() {
     super.initState();
     _refreshData();
-    // Jalankan animasi setelah frame pertama
     Future.delayed(const Duration(milliseconds: 100), () {
       if (mounted) setState(() => _isVisible = true);
     });
@@ -45,9 +46,8 @@ class _DashboardPageState extends State<DashboardPage> {
     final today = DateHelper.getTodayIsoPrefix();
     final summary = await _txService.getDailySummary(today);
     final weekly = await _txService.getWeeklySalesData();
-    
-    // Pastikan Anda sudah menambahkan fungsi getMonthlySalesData di transaction_service.dart
     final monthly = await _txService.getMonthlySalesData(); 
+    final recent = await _txService.getRecentTransactions(3); // Ambil 3 terbaru
 
     setState(() {
       _todaySales = summary['sales'] ?? 0;
@@ -55,6 +55,7 @@ class _DashboardPageState extends State<DashboardPage> {
       _todayNet = summary['net'] ?? 0;
       _weeklyData = weekly;
       _monthlyData = monthly;
+      _recentTransactions = recent;
     });
   }
 
@@ -81,7 +82,7 @@ class _DashboardPageState extends State<DashboardPage> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      backgroundColor: Colors.transparent, // Biar efek rounded luarnya mulus
+      backgroundColor: Colors.transparent, 
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => Container(
           decoration: const BoxDecoration(
@@ -159,7 +160,7 @@ class _DashboardPageState extends State<DashboardPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), // Tema Light
+      backgroundColor: const Color(0xFFF8F9FA), 
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -172,6 +173,12 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.notifications_rounded, color: AppTheme.primaryBlue, size: 28),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddReminderPage()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.history_rounded, color: AppTheme.primaryBlue, size: 28),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryPage())).then((_) => _refreshData()),
@@ -193,7 +200,14 @@ class _DashboardPageState extends State<DashboardPage> {
               children: [
                 const Text('Ringkasan Kas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                 const SizedBox(height: 12),
-                SummaryCard(sales: _todaySales, expense: _todayExpense, net: _todayNet),
+                
+                Column(
+                  children: [
+                    SummaryCard(sales: _todaySales, expense: _todayExpense, net: _todayNet),
+                    const SizedBox(height: 8), 
+                    _buildInsightCard(),
+                  ],
+                ),
                 
                 const SizedBox(height: 25),
 
@@ -204,12 +218,18 @@ class _DashboardPageState extends State<DashboardPage> {
                   const SizedBox(height: 25),
                 ],
 
+                // --- BAGIAN TRANSAKSI TERAKHIR DITAMBAHKAN ---
+                if (_recentTransactions.isNotEmpty) ...[
+                  const Text('Transaksi Terakhir', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                  const SizedBox(height: 12),
+                  _buildRecentTransactions(),
+                  const SizedBox(height: 25),
+                ],
+
                 const Text('Tren Penjualan (Ketuk untuk ubah)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
                 const SizedBox(height: 12),
                 _buildLineChartCard(),
 
-                const SizedBox(height: 25),
-                _buildInsightCard(),
                 const SizedBox(height: 100),
               ],
             ),
@@ -226,9 +246,41 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // =======================================================================
-  // WIDGET DIAGRAM PIE
-  // =======================================================================
+  // WIDGET TRANSAKSI TERAKHIR (3 DATA)
+  Widget _buildRecentTransactions() {
+    return Column(
+      children: _recentTransactions.map((tx) => Card(
+        elevation: 0.5,
+        margin: const EdgeInsets.only(bottom: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          leading: CircleAvatar(
+            backgroundColor: tx.type == 'sale' ? Colors.green[50] : Colors.red[50],
+            child: Icon(
+              tx.type == 'sale' ? Icons.arrow_downward : Icons.arrow_upward,
+              color: tx.type == 'sale' ? Colors.green : Colors.red,
+              size: 20,
+            ),
+          ),
+          title: Text(tx.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          subtitle: Text(
+            CurrencyFormatter.formatRupiah(tx.amount),
+            style: TextStyle(
+              color: tx.type == 'sale' ? Colors.green[700] : Colors.red[700], 
+              fontWeight: FontWeight.bold,
+              fontSize: 13
+            ),
+          ),
+          trailing: Text(
+            tx.createdAt.substring(11, 16), // Menampilkan jam:menit
+            style: const TextStyle(color: Colors.grey, fontSize: 11),
+          ),
+        ),
+      )).toList(),
+    );
+  }
+
   Widget _buildPieChartCard() {
     return Container(
       padding: const EdgeInsets.all(20),
@@ -248,18 +300,8 @@ class _DashboardPageState extends State<DashboardPage> {
                   sectionsSpace: 4,
                   centerSpaceRadius: 30,
                   sections: [
-                    PieChartSectionData(
-                      color: Colors.greenAccent[700],
-                      value: _todaySales.toDouble(),
-                      title: '', 
-                      radius: 20,
-                    ),
-                    PieChartSectionData(
-                      color: Colors.redAccent[400],
-                      value: _todayExpense.toDouble(),
-                      title: '',
-                      radius: 20,
-                    ),
+                    PieChartSectionData(color: Colors.greenAccent[700], value: _todaySales.toDouble(), title: '', radius: 20),
+                    PieChartSectionData(color: Colors.redAccent[400], value: _todayExpense.toDouble(), title: '', radius: 20),
                   ],
                 ),
               ),
@@ -299,18 +341,13 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // =======================================================================
-  // WIDGET GRAFIK LINE (INTERAKTIF)
-  // =======================================================================
   Widget _buildLineChartCard() {
     final currentData = _isMonthly ? _monthlyData : _weeklyData;
     final label = _isMonthly ? 'Tren 30 Hari Terakhir' : 'Tren 7 Hari Terakhir';
 
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _isMonthly = !_isMonthly; // Tukar mode saat diklik
-        });
+        setState(() { _isMonthly = !_isMonthly; });
       },
       child: Container(
         height: 260,
@@ -344,10 +381,9 @@ class _DashboardPageState extends State<DashboardPage> {
 
   LineChartData _lineChartData(List<Map<String, dynamic>> data) {
     return LineChartData(
-      // --- MENAMPILKAN DETAIL SAAT TITIK DIKLIK/SENTUH ---
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
-         tooltipBgColor: AppTheme.primaryBlue, // Warna background tooltip
+         tooltipBgColor: AppTheme.primaryBlue, 
           getTooltipItems: (List<LineBarSpot> touchedBarSpots) {
             return touchedBarSpots.map((barSpot) {
               final index = barSpot.x.toInt();
@@ -371,13 +407,11 @@ class _DashboardPageState extends State<DashboardPage> {
           sideTitles: SideTitles(
             showTitles: true,
             reservedSize: 22,
-            interval: 1, // KUNCI UTAMA: Agar label tidak dobel
+            interval: 1, 
             getTitlesWidget: (val, meta) {
               int index = val.toInt();
               if (index >= 0 && index < data.length) {
-                // Untuk mode bulanan, tampilkan label setiap 5 hari agar tetap rapi
                 if (_isMonthly && index % 5 != 0) return const SizedBox(); 
-                
                 String date = data[index]['date'].toString().substring(8);
                 return Padding(
                   padding: const EdgeInsets.only(top: 8.0),
@@ -400,14 +434,10 @@ class _DashboardPageState extends State<DashboardPage> {
           color: AppTheme.primaryBlue,
           barWidth: 4,
           isStrokeCapRound: true,
-          // --- MENAMPILKAN TITIK DI SETIAP KOORDINAT ---
           dotData: FlDotData(
             show: true,
             getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-              radius: 4,
-              color: Colors.white,
-              strokeWidth: 2,
-              strokeColor: AppTheme.primaryBlue,
+              radius: 4, color: Colors.white, strokeWidth: 2, strokeColor: AppTheme.primaryBlue,
             ),
           ),
           belowBarData: BarAreaData(show: true, color: AppTheme.primaryBlue.withOpacity(0.1)),
@@ -416,24 +446,22 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
-  // =======================================================================
-  // WIDGET INSIGHT CARD
-  // =======================================================================
   Widget _buildInsightCard() {
     int prediksi = (_todaySales * 0.10).round();
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: AppTheme.primaryBlue,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20), top: Radius.circular(8)),
         gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [AppTheme.primaryBlue, Colors.blue[800]!]),
+        boxShadow: [BoxShadow(color: AppTheme.primaryBlue.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(10),
+            padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), shape: BoxShape.circle),
-            child: const Icon(Icons.lightbulb_outline, color: Colors.white, size: 28),
+            child: const Icon(Icons.lightbulb_outline, color: Colors.white, size: 24),
           ),
           const SizedBox(width: 16),
           Expanded(
