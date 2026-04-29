@@ -5,6 +5,7 @@ import '../../core/utils/currency_formatter.dart';
 import '../../core/utils/date_helper.dart';
 import '../../models/transaction_model.dart';
 import '../../services/transaction_service.dart';
+import '../../services/theme_service.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/custom_text_field.dart';
 import '../ai_chat/ai_chat_page.dart';
@@ -80,15 +81,23 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   void _showInputSheet() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final saleSelectedColor =
+        isDark ? Colors.green.withOpacity(0.28) : Colors.green[100];
+    final expenseSelectedColor =
+        isDark ? Colors.red.withOpacity(0.28) : Colors.red[100];
+    final chipTextColor = isDark ? colorScheme.onSurface : null;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent, 
       builder: (context) => StatefulBuilder(
         builder: (context, setSheetState) => Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.only(
             bottom: MediaQuery.of(context).viewInsets.bottom + 20, 
@@ -105,31 +114,57 @@ class _DashboardPageState extends State<DashboardPage> {
                   height: 5,
                   margin: const EdgeInsets.only(bottom: 20),
                   decoration: BoxDecoration(
-                    color: Colors.grey[300],
+                    color: colorScheme.outlineVariant,
                     borderRadius: BorderRadius.circular(10),
                   ),
                 ),
               ),
-              const Text('Catat Transaksi', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blueGrey), textAlign: TextAlign.center),
+              Text(
+                'Catat Transaksi',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: colorScheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
+              ),
               const SizedBox(height: 24),
               Row(
                 children: [
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text('Pemasukan', style: TextStyle(fontWeight: FontWeight.bold))),
+                      label: Center(
+                        child: Text(
+                          'Pemasukan',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: chipTextColor,
+                          ),
+                        ),
+                      ),
                       selected: _selectedType == 'sale',
-                      selectedColor: Colors.green[100],
-                      backgroundColor: Colors.grey[100],
+                      selectedColor: saleSelectedColor,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      checkmarkColor: isDark ? Colors.greenAccent : Colors.green,
                       onSelected: (val) => setSheetState(() => _selectedType = 'sale'),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: ChoiceChip(
-                      label: const Center(child: Text('Pengeluaran', style: TextStyle(fontWeight: FontWeight.bold))),
+                      label: Center(
+                        child: Text(
+                          'Pengeluaran',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: chipTextColor,
+                          ),
+                        ),
+                      ),
                       selected: _selectedType == 'expense',
-                      selectedColor: Colors.red[100],
-                      backgroundColor: Colors.grey[100],
+                      selectedColor: expenseSelectedColor,
+                      backgroundColor: colorScheme.surfaceContainerHighest,
+                      checkmarkColor: isDark ? Colors.redAccent : Colors.red,
                       onSelected: (val) => setSheetState(() => _selectedType = 'expense'),
                     ),
                   ),
@@ -160,17 +195,34 @@ class _DashboardPageState extends State<DashboardPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final sectionStyle = TextStyle(
+      fontSize: 16,
+      fontWeight: FontWeight.bold,
+      color: colorScheme.onSurfaceVariant,
+    );
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA), 
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         centerTitle: false,
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('C-Kas Warung', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 18)),
-            Text(DateHelper.formatToId(DateHelper.getTodayIsoPrefix()), style: const TextStyle(color: Colors.grey, fontSize: 12)),
+            Text(
+              'C-Kas Warung',
+              style: TextStyle(
+                color: colorScheme.onSurface,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
+            ),
+            Text(
+              DateHelper.formatToId(DateHelper.getTodayIsoPrefix()),
+              style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12),
+            ),
           ],
         ),
         actions: [
@@ -191,6 +243,11 @@ class _DashboardPageState extends State<DashboardPage> {
             icon: const Icon(Icons.history_rounded, color: AppTheme.primaryBlue, size: 28),
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HistoryPage())).then((_) => _refreshData()),
           ),
+          IconButton(
+            icon: const Icon(Icons.settings_rounded, color: AppTheme.primaryBlue, size: 26),
+            tooltip: 'Pengaturan Tema',
+            onPressed: _showThemeSheet,
+          ),
           const SizedBox(width: 10),
         ],
       ),
@@ -206,7 +263,7 @@ class _DashboardPageState extends State<DashboardPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Ringkasan Kas', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                Text('Ringkasan Kas', style: sectionStyle),
                 const SizedBox(height: 12),
                 
                 Column(
@@ -220,7 +277,7 @@ class _DashboardPageState extends State<DashboardPage> {
                 const SizedBox(height: 25),
 
                 if (_todaySales > 0 || _todayExpense > 0) ...[
-                  const Text('Rasio Kas Hari Ini', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                  Text('Rasio Kas Hari Ini', style: sectionStyle),
                   const SizedBox(height: 12),
                   _buildPieChartCard(),
                   const SizedBox(height: 25),
@@ -228,13 +285,13 @@ class _DashboardPageState extends State<DashboardPage> {
 
                 // --- BAGIAN TRANSAKSI TERAKHIR DITAMBAHKAN ---
                 if (_recentTransactions.isNotEmpty) ...[
-                  const Text('Transaksi Terakhir', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                  Text('Transaksi Terakhir', style: sectionStyle),
                   const SizedBox(height: 12),
                   _buildRecentTransactions(),
                   const SizedBox(height: 25),
                 ],
 
-                const Text('Tren Penjualan (Ketuk untuk ubah)', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
+                Text('Tren Penjualan (Ketuk untuk ubah)', style: sectionStyle),
                 const SizedBox(height: 12),
                 _buildLineChartCard(),
 
@@ -254,8 +311,94 @@ class _DashboardPageState extends State<DashboardPage> {
     );
   }
 
+  void _showThemeSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => ValueListenableBuilder<ThemeMode>(
+        valueListenable: ThemeService.themeMode,
+        builder: (context, currentMode, _) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 24),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 42,
+                    height: 5,
+                    margin: const EdgeInsets.only(bottom: 20),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.outlineVariant,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                ),
+                const Text(
+                  'Tampilan',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                _buildThemeOption(
+                  title: 'Sesuai Sistem',
+                  subtitle: 'Ikuti pengaturan tema perangkat',
+                  icon: Icons.phone_android_rounded,
+                  mode: ThemeMode.system,
+                  currentMode: currentMode,
+                ),
+                _buildThemeOption(
+                  title: 'Light Mode',
+                  subtitle: 'Tampilan terang',
+                  icon: Icons.light_mode_rounded,
+                  mode: ThemeMode.light,
+                  currentMode: currentMode,
+                ),
+                _buildThemeOption(
+                  title: 'Dark Mode',
+                  subtitle: 'Tampilan gelap',
+                  icon: Icons.dark_mode_rounded,
+                  mode: ThemeMode.dark,
+                  currentMode: currentMode,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildThemeOption({
+    required String title,
+    required String subtitle,
+    required IconData icon,
+    required ThemeMode mode,
+    required ThemeMode currentMode,
+  }) {
+    return RadioListTile<ThemeMode>(
+      value: mode,
+      groupValue: currentMode,
+      activeColor: AppTheme.primaryBlue,
+      secondary: Icon(icon, color: AppTheme.primaryBlue),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      subtitle: Text(subtitle),
+      onChanged: (value) async {
+        if (value == null) return;
+        await ThemeService.setThemeMode(value);
+        if (mounted) Navigator.pop(context);
+      },
+    );
+  }
+
   // WIDGET TRANSAKSI TERAKHIR (3 DATA)
   Widget _buildRecentTransactions() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Column(
       children: _recentTransactions.map((tx) => Card(
         elevation: 0.5,
@@ -264,14 +407,23 @@ class _DashboardPageState extends State<DashboardPage> {
         child: ListTile(
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
           leading: CircleAvatar(
-            backgroundColor: tx.type == 'sale' ? Colors.green[50] : Colors.red[50],
+            backgroundColor: tx.type == 'sale'
+                ? Colors.green.withOpacity(0.14)
+                : Colors.red.withOpacity(0.14),
             child: Icon(
               tx.type == 'sale' ? Icons.arrow_downward : Icons.arrow_upward,
               color: tx.type == 'sale' ? Colors.green : Colors.red,
               size: 20,
             ),
           ),
-          title: Text(tx.description, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+          title: Text(
+            tx.description,
+            style: TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 14,
+              color: colorScheme.onSurface,
+            ),
+          ),
           subtitle: Text(
             CurrencyFormatter.formatRupiah(tx.amount),
             style: TextStyle(
@@ -282,7 +434,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           trailing: Text(
             tx.createdAt.substring(11, 16), // Menampilkan jam:menit
-            style: const TextStyle(color: Colors.grey, fontSize: 11),
+            style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 11),
           ),
         ),
       )).toList(),
@@ -290,10 +442,12 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildPieChartCard() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colorScheme.surfaceContainerHighest,
         borderRadius: BorderRadius.circular(24),
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))]
       ),
@@ -334,6 +488,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildPieLegend(String title, Color color, int amount) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       children: [
         Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
@@ -341,8 +497,18 @@ class _DashboardPageState extends State<DashboardPage> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(title, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            Text(CurrencyFormatter.formatRupiah(amount), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text(
+              title,
+              style: TextStyle(fontSize: 12, color: colorScheme.onSurfaceVariant),
+            ),
+            Text(
+              CurrencyFormatter.formatRupiah(amount),
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+                color: colorScheme.onSurface,
+              ),
+            ),
           ],
         )
       ],
@@ -350,6 +516,7 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   Widget _buildLineChartCard() {
+    final colorScheme = Theme.of(context).colorScheme;
     final currentData = _isMonthly ? _monthlyData : _weeklyData;
     final label = _isMonthly ? 'Tren 30 Hari Terakhir' : 'Tren 7 Hari Terakhir';
 
@@ -361,7 +528,7 @@ class _DashboardPageState extends State<DashboardPage> {
         height: 260,
         padding: const EdgeInsets.fromLTRB(15, 20, 20, 15),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(24),
           boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15, offset: const Offset(0, 5))]
         ),
@@ -371,14 +538,33 @@ class _DashboardPageState extends State<DashboardPage> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(label, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.blueGrey)),
-                Icon(_isMonthly ? Icons.calendar_view_month : Icons.calendar_view_week, size: 18, color: Colors.grey),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                Icon(
+                  _isMonthly ? Icons.calendar_view_month : Icons.calendar_view_week,
+                  size: 18,
+                  color: colorScheme.onSurfaceVariant,
+                ),
               ],
             ),
             const SizedBox(height: 20),
             Expanded(
               child: currentData.length < 2
-                  ? const Center(child: Text('Data belum cukup untuk grafik', style: TextStyle(fontSize: 12, color: Colors.grey)))
+                  ? Center(
+                      child: Text(
+                        'Data belum cukup untuk grafik',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
                   : LineChart(_lineChartData(currentData)),
             ),
           ],
@@ -388,6 +574,8 @@ class _DashboardPageState extends State<DashboardPage> {
   }
 
   LineChartData _lineChartData(List<Map<String, dynamic>> data) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return LineChartData(
       lineTouchData: LineTouchData(
         touchTooltipData: LineTouchTooltipData(
@@ -423,7 +611,13 @@ class _DashboardPageState extends State<DashboardPage> {
                 String date = data[index]['date'].toString().substring(8);
                 return Padding(
                   padding: const EdgeInsets.only(top: 8.0),
-                  child: Text(date, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+                  child: Text(
+                    date,
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: colorScheme.onSurfaceVariant,
+                    ),
+                  ),
                 );
               }
               return const SizedBox();

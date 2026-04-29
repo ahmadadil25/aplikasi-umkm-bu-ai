@@ -16,6 +16,8 @@ class CustomTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return TextField(
       controller: controller,
       keyboardType: keyboardType, // Menggunakan properti di sini
@@ -26,7 +28,7 @@ class CustomTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(8),
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: colorScheme.surface,
       ),
     );
   }

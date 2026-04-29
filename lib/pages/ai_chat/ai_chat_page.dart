@@ -151,16 +151,18 @@ class _AiChatPageState extends State<AiChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
         title: const Text(
           'AI Kas',
-          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
+          style: TextStyle(fontWeight: FontWeight.bold),
         ),
-        backgroundColor: Colors.white,
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        foregroundColor: colorScheme.onSurface,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
@@ -192,6 +194,7 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   Widget _buildQuickQuestions() {
+    final colorScheme = Theme.of(context).colorScheme;
     final questions = [
       'Rangkum kas hari ini',
       'Analisis pengeluaran hari ini',
@@ -204,7 +207,7 @@ class _AiChatPageState extends State<AiChatPage> {
 
     return Container(
       width: double.infinity,
-      color: Colors.white,
+      color: colorScheme.surface,
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -216,8 +219,8 @@ class _AiChatPageState extends State<AiChatPage> {
                   child: ActionChip(
                     label: Text(question),
                     labelStyle: const TextStyle(fontSize: 12),
-                    backgroundColor: AppTheme.primaryBlue.withOpacity(0.08),
-                    side: BorderSide(color: AppTheme.primaryBlue.withOpacity(0.1)),
+                    backgroundColor: colorScheme.surfaceContainerHighest,
+                    side: BorderSide(color: colorScheme.outlineVariant),
                     onPressed: () => _sendMessage(question),
                   ),
                 ),
@@ -264,12 +267,14 @@ class _AiChatPageState extends State<AiChatPage> {
   }
 
   Widget _buildInputBar() {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return SafeArea(
       top: false,
       child: Container(
         padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surface,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -290,7 +295,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 decoration: InputDecoration(
                   hintText: 'Tanya soal kas warung...',
                   filled: true,
-                  fillColor: const Color(0xFFF1F4F8),
+                  fillColor: colorScheme.surfaceContainerHighest,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(18),
                     borderSide: BorderSide.none,
@@ -310,7 +315,7 @@ class _AiChatPageState extends State<AiChatPage> {
                 onPressed: _isThinking ? null : () => _sendMessage(),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryBlue,
-                  disabledBackgroundColor: Colors.blueGrey[100],
+                  disabledBackgroundColor: colorScheme.surfaceContainerHighest,
                   padding: EdgeInsets.zero,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(16),
@@ -334,8 +339,10 @@ class _MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final alignment = message.isUser ? Alignment.centerRight : Alignment.centerLeft;
-    final color = message.isUser ? AppTheme.primaryBlue : Colors.white;
-    final textColor = message.isUser ? Colors.white : Colors.black87;
+    final colorScheme = Theme.of(context).colorScheme;
+    final color =
+        message.isUser ? AppTheme.primaryBlue : colorScheme.surfaceContainerHighest;
+    final textColor = message.isUser ? Colors.white : colorScheme.onSurface;
     final radius = BorderRadius.only(
       topLeft: const Radius.circular(18),
       topRight: const Radius.circular(18),
@@ -376,18 +383,20 @@ class _TypingBubble extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Align(
       alignment: Alignment.centerLeft,
       child: Container(
         margin: const EdgeInsets.only(bottom: 10),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(18),
         ),
         child: const Text(
           'Menganalisis data kas...',
-          style: TextStyle(color: Colors.blueGrey, fontSize: 13),
+          style: TextStyle(fontSize: 13),
         ),
       ),
     );

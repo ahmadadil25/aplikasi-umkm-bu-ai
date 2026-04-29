@@ -34,13 +34,15 @@ class _HistoryPageState extends State<HistoryPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: const Text('Riwayat Transaksi', style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
+        title: const Text('Riwayat Transaksi', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        foregroundColor: colorScheme.onSurface,
       ),
       body: _dates.isEmpty
           ? const Center(child: Text('Belum ada transaksi.'))
@@ -221,17 +223,18 @@ class _HistoryDetailPageState extends State<HistoryDetailPage> {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     int sales = _summary['sales'] ?? 0;
     int expense = _summary['expense'] ?? 0;
     bool hasDataForChart = sales > 0 || expense > 0;
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: colorScheme.surface,
       appBar: AppBar(
-        title: Text(DateHelper.formatToId(widget.datePrefix), style: const TextStyle(color: Colors.black, fontSize: 18)),
-        backgroundColor: Colors.white,
+        title: Text(DateHelper.formatToId(widget.datePrefix), style: const TextStyle(fontSize: 18)),
+        backgroundColor: colorScheme.surface,
         elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
+        foregroundColor: colorScheme.onSurface,
         actions: [
           IconButton(
             icon: const Icon(Icons.delete_sweep, color: Colors.red),
@@ -305,7 +308,11 @@ class _HistoryDetailPageState extends State<HistoryDetailPage> {
                       style: TextStyle(color: tx.type == 'sale' ? Colors.green : Colors.red, fontWeight: FontWeight.bold),
                     ),
                     trailing: IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.blueGrey, size: 20),
+                      icon: Icon(
+                        Icons.edit,
+                        color: colorScheme.onSurfaceVariant,
+                        size: 20,
+                      ),
                       onPressed: () => _showEditSheet(tx), // Panggil sheet edit
                     ),
                   ),

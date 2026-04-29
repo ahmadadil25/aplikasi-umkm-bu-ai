@@ -16,24 +16,29 @@ class SummaryCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Card(
-      color: Colors.white,
+      color: colorScheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildRow('Total Penjualan', sales, AppTheme.salesGreen),
+            _buildRow(context, 'Total Penjualan', sales, AppTheme.salesGreen),
             const SizedBox(height: 8),
-            _buildRow('Total Pengeluaran', expense, AppTheme.expenseRed),
+            _buildRow(context, 'Total Pengeluaran', expense, AppTheme.expenseRed),
             const Divider(height: 24, thickness: 1),
-            _buildRow('Bersih', net, AppTheme.primaryBlue, isBold: true),
+            _buildRow(context, 'Bersih', net, AppTheme.primaryBlue, isBold: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildRow(String label, int amount, Color color, {bool isBold = false}) {
+  Widget _buildRow(BuildContext context, String label, int amount, Color color,
+      {bool isBold = false}) {
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -42,6 +47,7 @@ class SummaryCard extends StatelessWidget {
           style: TextStyle(
             fontSize: isBold ? 16 : 14,
             fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+            color: colorScheme.onSurface,
           ),
         ),
         Text(

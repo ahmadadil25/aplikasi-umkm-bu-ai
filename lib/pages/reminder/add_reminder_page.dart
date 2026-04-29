@@ -42,9 +42,12 @@ class _AddReminderPageState extends State<AddReminderPage> {
     firstDate: now,   // Tidak bisa pilih hari sebelum hari ini
     lastDate: now.add(const Duration(days: 365)),
     builder: (context, child) {
+      final isDark = Theme.of(context).brightness == Brightness.dark;
       return Theme(
         data: Theme.of(context).copyWith(
-          colorScheme: const ColorScheme.light(primary: AppTheme.primaryBlue),
+          colorScheme: isDark
+              ? const ColorScheme.dark(primary: AppTheme.primaryBlue)
+              : const ColorScheme.light(primary: AppTheme.primaryBlue),
         ),
         child: child!,
       );
@@ -59,9 +62,12 @@ class _AddReminderPageState extends State<AddReminderPage> {
       context: context,
       initialTime: TimeOfDay.now(), // Perbaikan: Default ke jam aktual
       builder: (context, child) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(primary: AppTheme.primaryBlue),
+            colorScheme: isDark
+                ? const ColorScheme.dark(primary: AppTheme.primaryBlue)
+                : const ColorScheme.light(primary: AppTheme.primaryBlue),
           ),
           child: child!,
         );
@@ -191,8 +197,11 @@ class _AddReminderPageState extends State<AddReminderPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade50,
+      backgroundColor: isDark ? colorScheme.surface : Colors.grey.shade50,
       appBar: AppBar(
         title: const Text('Kelola Reminder', style: TextStyle(fontWeight: FontWeight.w600)),
         backgroundColor: AppTheme.primaryBlue,
@@ -205,11 +214,15 @@ class _AddReminderPageState extends State<AddReminderPage> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildInputCard(),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
               child: Text(
                 'Daftar Reminder Anda',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                  color: isDark ? colorScheme.onSurface : Colors.black87,
+                ),
               ),
             ),
             Expanded(
@@ -222,15 +235,18 @@ class _AddReminderPageState extends State<AddReminderPage> {
   }
 
   Widget _buildInputCard() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Container(
       margin: const EdgeInsets.all(16.0),
       padding: const EdgeInsets.all(20.0),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withValues(alpha: isDark ? 0.18 : 0.05),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -239,9 +255,13 @@ class _AddReminderPageState extends State<AddReminderPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Tambah Pengingat Baru',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.black54),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+              color: isDark ? colorScheme.onSurfaceVariant : Colors.black54,
+            ),
           ),
           const SizedBox(height: 16),
           TextField(
@@ -251,7 +271,10 @@ class _AddReminderPageState extends State<AddReminderPage> {
               hintText: 'Contoh: Bayar supplier beras...',
               prefixIcon: const Icon(Icons.edit_note, color: AppTheme.primaryBlue),
               filled: true,
-              fillColor: Colors.grey.shade100,
+              fillColor: isDark ? const Color(0xFF242424) : Colors.grey.shade100,
+              hintStyle: TextStyle(
+                color: isDark ? Colors.white38 : Colors.grey.shade500,
+              ),
               contentPadding: const EdgeInsets.symmetric(vertical: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -273,6 +296,7 @@ class _AddReminderPageState extends State<AddReminderPage> {
                 padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.grey.shade300),
+                  color: isDark ? const Color(0xFF1F1F1F) : null,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
@@ -285,7 +309,9 @@ class _AddReminderPageState extends State<AddReminderPage> {
                             ? 'Pilih Tanggal & Waktu' 
                             : '${DateHelper.formatToId(_selectedDateTime!.toIso8601String())} - ${_selectedDateTime!.hour.toString().padLeft(2, '0')}:${_selectedDateTime!.minute.toString().padLeft(2, '0')}',
                         style: TextStyle(
-                          color: _selectedDateTime == null ? Colors.grey.shade600 : Colors.black87,
+                          color: _selectedDateTime == null
+                              ? (isDark ? Colors.white60 : Colors.grey.shade600)
+                              : (isDark ? colorScheme.onSurface : Colors.black87),
                           fontWeight: _selectedDateTime == null ? FontWeight.normal : FontWeight.w600,
                         ),
                       ),
@@ -321,6 +347,9 @@ class _AddReminderPageState extends State<AddReminderPage> {
   }
 
   Widget _buildReminderList() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return ListView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
       itemCount: _reminders.length,
@@ -331,11 +360,11 @@ class _AddReminderPageState extends State<AddReminderPage> {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.03),
+                color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.03),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -353,25 +382,43 @@ class _AddReminderPageState extends State<AddReminderPage> {
             ),
             title: Text(
               r.text, 
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+              style: TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 15,
+                color: isDark ? colorScheme.onSurface : Colors.black87,
+              ),
             ),
             subtitle: Padding(
               // PERBAIKAN UTAMA: Typo "EdgeInsets.top: 6.0)" diperbaiki menjadi "EdgeInsets.only(top: 6.0)"
               padding: const EdgeInsets.only(top: 6.0),
               child: Row(
                 children: [
-                  Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.calendar_today,
+                    size: 14,
+                    color: isDark ? colorScheme.onSurfaceVariant : Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     DateHelper.formatToId(r.reminderDate),
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    style: TextStyle(
+                      color: isDark ? colorScheme.onSurfaceVariant : Colors.grey.shade600,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(width: 12),
-                  Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                  Icon(
+                    Icons.access_time,
+                    size: 14,
+                    color: isDark ? colorScheme.onSurfaceVariant : Colors.grey.shade600,
+                  ),
                   const SizedBox(width: 4),
                   Text(
                     '${rDate.hour.toString().padLeft(2, '0')}:${rDate.minute.toString().padLeft(2, '0')}',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                    style: TextStyle(
+                      color: isDark ? colorScheme.onSurfaceVariant : Colors.grey.shade600,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ),
@@ -388,6 +435,9 @@ class _AddReminderPageState extends State<AddReminderPage> {
   }
 
   Widget _buildEmptyState() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colorScheme = Theme.of(context).colorScheme;
+
     return Center(
       // Tambahkan SingleChildScrollView di sini
       child: SingleChildScrollView( 
@@ -405,15 +455,22 @@ class _AddReminderPageState extends State<AddReminderPage> {
               child: Icon(Icons.event_busy_rounded, size: 64, color: AppTheme.primaryBlue.withValues(alpha: 0.5)),
             ),
             const SizedBox(height: 20),
-            const Text(
+            Text(
               'Belum ada pengingat',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87),
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? colorScheme.onSurface : Colors.black87,
+              ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Tambahkan jadwal kegiatan penting\nagar tidak ada yang terlewat.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.black54, height: 1.5),
+              style: TextStyle(
+                color: isDark ? colorScheme.onSurfaceVariant : Colors.black54,
+                height: 1.5,
+              ),
             ),
           ],
         ),
