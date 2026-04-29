@@ -172,6 +172,10 @@ class _AddReminderPageState extends State<AddReminderPage> {
 
     if (confirm == true && mounted) {
       await _reminderService.deleteReminder(reminder.id!);
+      
+      // TAMBAHKAN BARIS INI: Batalkan alarm yang terjadwal
+      await NotificationService.cancelNotification(reminder.id!);
+      
       _loadReminders();
       _showSnackBar('Pengingat berhasil dihapus', isError: false);
     }

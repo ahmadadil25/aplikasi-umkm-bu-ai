@@ -1,59 +1,43 @@
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
-import 'package:timezone/data/latest_all.dart' as tz;
-import 'package:timezone/timezone.dart' as tz;
+import 'dart:io';
+import 'package:alarm/alarm.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 class NotificationService {
-  static final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
+  // 1. Method untuk inisialisasi permission
   static Future<void> initialize() async {
-    // 1. Inisialisasi Timezone
-    tz.initializeTimeZones();
-
-    const AndroidInitializationSettings androidSettings =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
-
-    const InitializationSettings initSettings = InitializationSettings(
-      android: androidSettings,
-    );
-
-    await _notificationsPlugin.initialize(initSettings);
-
-    // 2. Minta izin notifikasi untuk Android 13 ke atas
-    await _notificationsPlugin
-        .resolvePlatformSpecificImplementation<
-            AndroidFlutterLocalNotificationsPlugin>()
-        ?.requestNotificationsPermission();
+    await Permission.notification.request();
+    await Permission.scheduleExactAlarm.request();
   }
 
-  // Fungsi untuk menjadwalkan notifikasi di masa depan
+  // 2. Method untuk menjadwalkan alarm
   static Future<void> scheduleNotification({
     required int id,
     required String title,
     required String body,
     required DateTime scheduledTime,
   }) async {
-    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
-      'ckas_channel',
-      'C-Kas Reminders',
-      channelDescription: 'Notifikasi pengingat aplikasi C-Kas',
-      importance: Importance.max,
-      priority: Priority.high,
+    final alarmSettings = AlarmSettings(
+      id: id,
+      dateTime: scheduledTime,
+      assetAudioPath: 'assets/sounds/alarm.mp3', 
+      loopAudio: true,
+      vibrate: true,
+      volume: 1.0,
+      fadeDuration: 3.0, 
+      notificationSettings: NotificationSettings(
+        title: title,
+        body: body,
+        stopButton: 'Matikan Alarm', 
+      ),
+      warningNotificationOnKill: Platform.isIOS,
+      androidFullScreenIntent: true,
     );
 
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-    );
+    await Alarm.set(alarmSettings: alarmSettings);
+  }
 
-    await _notificationsPlugin.zonedSchedule(
-      id,
-      title,
-      body,
-      tz.TZDateTime.from(scheduledTime, tz.local),
-      platformDetails,
-      androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-      uiLocalNotificationDateInterpretation:
-          UILocalNotificationDateInterpretation.absoluteTime,
-    );
+  // 3. Method untuk membatalkan alarm (Ini yang menyebabkan error tadi)
+  static Future<void> cancelNotification(int id) async {
+    await Alarm.stop(id);
   }
 }

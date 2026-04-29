@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Tambahkan import ini untuk TextInputFormatter
 
 class CustomTextField extends StatelessWidget {
   final TextEditingController controller;
   final String label;
   final IconData icon;
-  final TextInputType keyboardType; // Properti baru untuk mengatur jenis keyboard
+  final TextInputType keyboardType; 
+  final List<TextInputFormatter>? inputFormatters; // Properti baru untuk mengatur format input
 
   const CustomTextField({
     Key? key,
     required this.controller,
     required this.label,
     required this.icon,
-    this.keyboardType = TextInputType.text, // Default-nya adalah keyboard teks biasa
+    this.keyboardType = TextInputType.text, 
+    this.inputFormatters, // Tambahkan di constructor
   }) : super(key: key);
 
   @override
@@ -20,7 +23,8 @@ class CustomTextField extends StatelessWidget {
 
     return TextField(
       controller: controller,
-      keyboardType: keyboardType, // Menggunakan properti di sini
+      keyboardType: keyboardType, 
+      inputFormatters: inputFormatters, // Gunakan properti di sini
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),
