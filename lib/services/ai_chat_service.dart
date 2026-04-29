@@ -13,7 +13,8 @@ class AiChatService {
 
   final TransactionService _transactionService;
   static const String _endpointKey = 'ai_chat_endpoint';
-  static const String defaultEndpoint = 'http://10.0.2.2:3000/api/ai-chat';
+  static const String defaultEndpoint =
+      'https://sorest-inviolately-luella.ngrok-free.dev/api/ai-chat';
   bool lastOnlineUnavailable = false;
 
   Future<String> getEndpoint() async {
