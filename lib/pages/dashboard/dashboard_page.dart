@@ -7,6 +7,7 @@ import '../../models/transaction_model.dart';
 import '../../services/transaction_service.dart';
 import '../../widgets/summary_card.dart';
 import '../../widgets/custom_text_field.dart';
+import '../ai_chat/ai_chat_page.dart';
 import '../history/history_page.dart';
 import '../reminder/add_reminder_page.dart';
 
@@ -173,6 +174,13 @@ class _DashboardPageState extends State<DashboardPage> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.smart_toy_rounded, color: AppTheme.primaryBlue, size: 26),
+            tooltip: 'AI Kas',
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const AiChatPage()));
+            },
+          ),
           IconButton(
             icon: const Icon(Icons.notifications_rounded, color: AppTheme.primaryBlue, size: 28),
             onPressed: () {

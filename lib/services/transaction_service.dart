@@ -103,13 +103,14 @@ class TransactionService {
     );
   }
 
-// Tambahkan di dalam class TransactionService
+  // Tambahkan di dalam class TransactionService
   // Fungsi untuk 7 Hari Terakhir
   Future<List<Map<String, dynamic>>> getWeeklySalesData() async {
     final db = await LocalDbService.instance.database;
-    
+
     // Hitung tanggal batas (7 hari yang lalu dari hari ini)
-    final sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
+    final sevenDaysAgo =
+        DateTime.now().subtract(const Duration(days: 7)).toIso8601String();
 
     // Ambil data yang tanggalnya lebih dari/sama dengan 7 hari yang lalu
     final List<Map<String, dynamic>> result = await db.rawQuery('''
@@ -119,16 +120,17 @@ class TransactionService {
       GROUP BY date
       ORDER BY date ASC
     ''', [sevenDaysAgo]);
-    
+
     return result;
   }
 
   // Fungsi untuk 30 Hari Terakhir (Bulanan)
   Future<List<Map<String, dynamic>>> getMonthlySalesData() async {
     final db = await LocalDbService.instance.database;
-    
+
     // Hitung tanggal batas (30 hari yang lalu)
-    final thirtyDaysAgo = DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
+    final thirtyDaysAgo =
+        DateTime.now().subtract(const Duration(days: 30)).toIso8601String();
 
     final List<Map<String, dynamic>> result = await db.rawQuery('''
       SELECT SUBSTR(created_at, 1, 10) as date, SUM(amount) as total
@@ -137,27 +139,42 @@ class TransactionService {
       GROUP BY date
       ORDER BY date ASC
     ''', [thirtyDaysAgo]);
-    
+
     return result;
   }
 
   // Tambahkan di dalam class TransactionService
-Future<List<TransactionModel>> getRecentTransactions(int limit) async {
-  final db = await LocalDbService.instance.database;
-  final List<Map<String, dynamic>> maps = await db.query(
-    'transactions',
-    orderBy: 'created_at DESC',
-    limit: limit,
-  );
-  
-  return List.generate(maps.length, (i) {
-    return TransactionModel(
-      id: maps[i]['id'],
-      type: maps[i]['type'],
-      amount: maps[i]['amount'],
-      description: maps[i]['description'],
-      createdAt: maps[i]['created_at'],
+  Future<List<TransactionModel>> getRecentTransactions(int limit) async {
+    final db = await LocalDbService.instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      orderBy: 'created_at DESC',
+      limit: limit,
     );
-  });
-}
+
+    return List.generate(maps.length, (i) {
+      return TransactionModel(
+        id: maps[i]['id'],
+        type: maps[i]['type'],
+        amount: maps[i]['amount'],
+        description: maps[i]['description'],
+        createdAt: maps[i]['created_at'],
+      );
+    });
+  }
+
+  Future<List<TransactionModel>> getTransactionsBetween(
+    DateTime start,
+    DateTime end,
+  ) async {
+    final db = await LocalDbService.instance.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'created_at >= ? AND created_at < ?',
+      whereArgs: [start.toIso8601String(), end.toIso8601String()],
+      orderBy: 'created_at DESC',
+    );
+
+    return maps.map((e) => TransactionModel.fromMap(e)).toList();
+  }
 }
