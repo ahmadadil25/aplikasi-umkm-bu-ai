@@ -22,18 +22,26 @@ class _AiChatPageState extends State<AiChatPage> {
 
   bool _isThinking = false;
   bool _hasShownOfflineNotice = false;
+  bool get _hasDraftMessage => _messageController.text.trim().isNotEmpty;
 
   @override
   void initState() {
     super.initState();
+    _messageController.addListener(_handleInputChanged);
     _loadChatHistory();
   }
 
   @override
   void dispose() {
+    _messageController.removeListener(_handleInputChanged);
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _handleInputChanged() {
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _sendMessage([String? quickQuestion]) async {
@@ -52,7 +60,19 @@ class _AiChatPageState extends State<AiChatPage> {
     _scrollToBottom();
     await _saveChatHistory();
 
-    final answer = await _chatService.ask(text);
+    final answer = await _chatService.ask(
+      text,
+      conversationHistory: (_messages.length > 1
+              ? _messages.sublist(0, _messages.length - 1)
+              : const <_ChatMessage>[])
+          .map(
+            (message) => {
+              'role': message.isUser ? 'user' : 'assistant',
+              'text': message.text,
+            },
+          )
+          .toList(),
+    );
 
     if (!mounted) return;
     setState(() {
@@ -301,7 +321,7 @@ class _AiChatPageState extends State<AiChatPage> {
               height: 50,
               width: 50,
               decoration: BoxDecoration(
-                color: _isThinking || _messageController.text.isEmpty
+                color: _isThinking || !_hasDraftMessage
                     ? colorScheme.surfaceContainerHighest
                     : AppTheme.primaryBlue,
                 shape: BoxShape.circle,
@@ -309,12 +329,12 @@ class _AiChatPageState extends State<AiChatPage> {
               child: IconButton(
                 icon: Icon(
                   Icons.send_rounded,
-                  color: _isThinking || _messageController.text.isEmpty
+                  color: _isThinking || !_hasDraftMessage
                       ? colorScheme.onSurfaceVariant
                       : Colors.white,
                   size: 20,
                 ),
-                onPressed: _isThinking ? null : () => _sendMessage(),
+                onPressed: _isThinking || !_hasDraftMessage ? null : () => _sendMessage(),
               ),
             ),
           ],
@@ -396,7 +416,7 @@ class _WelcomeCard extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                'Aku siap membantu menganalisis pemasukan, pengeluaran, membaca tren, hingga memberikan estimasi modal warungmu.',
+                'Aku siap membantu menganalisis pemasukan, pengeluaran, membaca tren, menjawab pertanyaan lanjutan, hingga memberikan estimasi modal warungmu.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 14, color: colorScheme.onSurfaceVariant, height: 1.5),
               ),
@@ -420,7 +440,8 @@ class _WelcomeCard extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     const _ExampleText('Berapa total pemasukan hari ini?'),
-                    const _ExampleText('Apakah ada pengeluaran yang janggal?'),
+                    const _ExampleText('Apa ada pengeluaran yang janggal minggu ini?'),
+                    const _ExampleText('Kalau dibanding kemarin, bagian mana yang perlu ditekan?'),
                     const _ExampleText('Berapa estimasi modal untuk besok?'),
                   ],
                 ),

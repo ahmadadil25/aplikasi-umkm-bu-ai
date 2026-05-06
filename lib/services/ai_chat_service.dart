@@ -38,39 +38,118 @@ class AiChatService {
     await prefs.setString(_endpointKey, trimmedEndpoint);
   }
 
-  Future<String> ask(String question) async {
+  Future<String> ask(
+    String question, {
+    List<Map<String, String>> conversationHistory = const [],
+  }) async {
     lastOnlineUnavailable = false;
 
-    if (!_isRelatedQuestion(question)) {
-      return _outOfScopeWarning();
-    }
-
-    final localAnswer = await _askLocal(question);
-    final onlineAnswer = await _askOnline(question, localAnswer);
+    final effectiveQuestion = _buildEffectiveQuestion(
+      question,
+      conversationHistory,
+    );
+    final localAnswer = await _askLocal(
+      question,
+      effectiveQuestion: effectiveQuestion,
+    );
+    final onlineAnswer = await _askOnline(
+      question,
+      localAnswer,
+      conversationHistory: conversationHistory,
+      effectiveQuestion: effectiveQuestion,
+    );
     return onlineAnswer ?? localAnswer;
   }
 
-  Future<String> _askLocal(String question) async {
+  String _buildEffectiveQuestion(
+    String question,
+    List<Map<String, String>> conversationHistory,
+  ) {
+    final normalizedQuestion = question.toLowerCase().trim();
+    if (!_looksLikeFollowUp(normalizedQuestion) || conversationHistory.isEmpty) {
+      return question;
+    }
+
+    final recentHistory = conversationHistory.length > 6
+        ? conversationHistory.sublist(conversationHistory.length - 6)
+        : conversationHistory;
+    final contextLines = recentHistory
+        .map((item) {
+          final role = item['role'] == 'assistant' ? 'AI' : 'User';
+          final text = item['text']?.trim() ?? '';
+          if (text.isEmpty) return '';
+          return '$role: $text';
+        })
+        .where((line) => line.isNotEmpty)
+        .join('\n');
+
+    if (contextLines.isEmpty) {
+      return question;
+    }
+
+    return '$question\n\nKonteks percakapan:\n$contextLines';
+  }
+
+  bool _looksLikeFollowUp(String question) {
+    final words = question.split(RegExp(r'\s+')).where((word) => word.isNotEmpty);
+    final followUpKeywords = [
+      'itu',
+      'tadi',
+      'yang mana',
+      'yang paling',
+      'kalau',
+      'terus',
+      'lalu',
+      'detail',
+      'lebih rinci',
+      'jelasin',
+      'kenapa',
+      'kok',
+      'gimana',
+      'bagaimana',
+    ];
+
+    return words.length <= 6 || _containsAny(question, followUpKeywords);
+  }
+
+  Future<String> _askLocal(
+    String question, {
+    required String effectiveQuestion,
+  }) async {
     final normalizedQuestion = question.toLowerCase();
+    final normalizedEffectiveQuestion = effectiveQuestion.toLowerCase();
 
     if (_isGreeting(normalizedQuestion)) {
-      return 'Halo, aku siap bantu soal C-Kas. Kamu bisa tanya ringkasan kas, pengeluaran, pemasukan, tren penjualan, modal, atau laporan warung.';
+      return 'Halo, aku siap bantu soal C-Kas. Kamu bisa tanya dengan bahasa santai juga, misalnya minta ringkasan kas, cek pengeluaran, bandingkan periode, cari transaksi terbesar, atau minta saran modal.';
     }
 
     if (_isThanks(normalizedQuestion)) {
       return 'Sama-sama. Kalau butuh analisis kas lagi, tinggal tanya saja.';
     }
 
-    if (_containsAny(normalizedQuestion, [
-      'banding',
-      'dibanding',
-      'kemarin vs hari ini',
-      'hari ini vs kemarin',
-    ])) {
-      return _buildTodayComparisonAnswer();
+    if (_isCapabilityQuestion(normalizedEffectiveQuestion)) {
+      return _buildCapabilityAnswer();
     }
 
-    final period = _resolvePeriod(normalizedQuestion);
+    if (!_isRelatedQuestion(normalizedEffectiveQuestion)) {
+      return _outOfScopeWarning();
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'banding',
+      'dibanding',
+      'vs',
+      'versus',
+      'lebih bagus mana',
+      'lebih besar mana',
+    ])) {
+      return _buildComparisonAnswer(normalizedEffectiveQuestion);
+    }
+
+    final period = _resolvePeriod(
+      normalizedQuestion,
+      fallbackQuestion: normalizedEffectiveQuestion,
+    );
     final transactions = await _transactionService.getTransactionsBetween(
       period.start,
       period.end,
@@ -82,38 +161,126 @@ class AiChatService {
 
     final summary = _buildSummary(transactions);
 
-    if (_containsAny(normalizedQuestion, ['tren', 'trend', 'perkembangan'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'janggal',
+      'aneh',
+      'boros',
+      'membengkak',
+      'tidak wajar',
+    ])) {
+      return _buildAnomalyAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'rata-rata',
+      'rerata',
+      'average',
+      'avg',
+    ])) {
+      return _buildAverageAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'berapa transaksi',
+      'jumlah transaksi',
+      'berapa kali',
+      'berapa data',
+    ])) {
+      return _buildTransactionCountAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'transaksi terakhir',
+      'aktivitas terakhir',
+      'yang terakhir',
+      'terbaru',
+      'recent',
+      'baru saja',
+    ])) {
+      return _buildLatestActivityAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'sehat',
+      'aman',
+      'bagus gak',
+      'bagaimana kondisi',
+      'kondisi kas',
+    ])) {
+      return _buildHealthAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'tren',
+      'trend',
+      'perkembangan',
+    ])) {
       return _buildTrendAnswer(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['rekomendasi', 'tips', 'evaluasi', 'saran'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'rekomendasi',
+      'tips',
+      'evaluasi',
+      'saran',
+      'apa yang harus',
+      'langkah',
+    ])) {
       return _buildRecommendationAnswer(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['pengeluaran', 'keluar', 'biaya'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'pengeluaran',
+      'keluar',
+      'biaya',
+      'belanja',
+    ])) {
       return _buildExpenseAnswer(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['pendapatan', 'pemasukan', 'penjualan', 'omzet'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'pendapatan',
+      'pemasukan',
+      'penjualan',
+      'omzet',
+    ])) {
       return _buildSalesAnswer(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['modal', 'besok', 'saran'])) {
+    if (_containsAny(normalizedEffectiveQuestion, ['modal', 'besok'])) {
       return _buildCapitalSuggestion(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['terbesar', 'paling besar', 'tertinggi'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'terbesar',
+      'paling besar',
+      'tertinggi',
+    ])) {
       return _buildBiggestTransactionAnswer(period.label, summary);
     }
 
-    if (_containsAny(normalizedQuestion, ['untung', 'laba', 'bersih', 'profit'])) {
+    if (_containsAny(normalizedEffectiveQuestion, [
+      'untung',
+      'laba',
+      'bersih',
+      'profit',
+    ])) {
       return _buildNetAnswer(period.label, summary);
+    }
+
+    if (_containsAny(normalizedEffectiveQuestion, ['kenapa', 'kok'])) {
+      return _buildWhyAnswer(period.label, summary);
     }
 
     return _buildGeneralAnswer(period.label, summary);
   }
 
-  Future<String?> _askOnline(String question, String localAnswer) async {
+  Future<String?> _askOnline(
+    String question,
+    String localAnswer, {
+    required List<Map<String, String>> conversationHistory,
+    required String effectiveQuestion,
+  }) async {
     final endpoint = await getEndpoint();
     if (endpoint.isEmpty) return null;
 
@@ -125,7 +292,16 @@ class AiChatService {
             const Duration(seconds: 8),
           );
       request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(await _buildOnlinePayload(question, localAnswer)));
+      request.write(
+        jsonEncode(
+          await _buildOnlinePayload(
+            question,
+            localAnswer,
+            conversationHistory: conversationHistory,
+            effectiveQuestion: effectiveQuestion,
+          ),
+        ),
+      );
 
       final response = await request.close().timeout(
             const Duration(seconds: 15),
@@ -160,6 +336,10 @@ class AiChatService {
   Future<Map<String, dynamic>> _buildOnlinePayload(
     String question,
     String localAnswer,
+    {
+    required List<Map<String, String>> conversationHistory,
+    required String effectiveQuestion,
+    }
   ) async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
@@ -188,10 +368,12 @@ class AiChatService {
 
     return {
       'question': question,
+      'effective_question': effectiveQuestion,
       'local_answer': localAnswer,
       'generated_at': now.toIso8601String(),
       'app_context':
           'C-Kas adalah aplikasi pencatatan pemasukan dan pengeluaran warung.',
+      'conversation_history': _trimConversationHistory(conversationHistory),
       'summaries': {
         'today': _summaryToMap(_buildSummary(today)),
         'yesterday': _summaryToMap(_buildSummary(yesterday)),
@@ -200,8 +382,26 @@ class AiChatService {
       },
       'recent_transactions': recent.map(_transactionToMap).toList(),
       'instruction':
-          'Jawab dalam bahasa Indonesia, singkat, praktis, dan fokus pada kondisi kas warung. Jangan mengarang data di luar JSON ini.',
+          'Jawab dalam bahasa Indonesia yang natural, fleksibel, dan praktis. Gunakan conversation_history untuk memahami pertanyaan lanjutan yang singkat. Fokus pada kondisi kas warung dan penggunaan aplikasi C-Kas. Jangan mengarang data di luar JSON ini. Jika data kurang, katakan jujur lalu beri langkah atau saran berikutnya.',
     };
+  }
+
+  List<Map<String, String>> _trimConversationHistory(
+    List<Map<String, String>> conversationHistory,
+  ) {
+    final trimmed = conversationHistory.length > 12
+        ? conversationHistory.sublist(conversationHistory.length - 12)
+        : conversationHistory;
+
+    return trimmed
+        .map(
+          (item) => {
+            'role': item['role'] ?? 'user',
+            'text': item['text']?.trim() ?? '',
+          },
+        )
+        .where((item) => item['text']!.isNotEmpty)
+        .toList();
   }
 
   Map<String, dynamic> _summaryToMap(_CashSummary summary) {
@@ -232,45 +432,138 @@ class AiChatService {
     };
   }
 
+  Future<String> _buildComparisonAnswer(String question) async {
+    final now = DateTime.now();
+    final todayStart = DateTime(now.year, now.month, now.day);
+
+    if (_containsAny(question, ['minggu lalu', 'pekan lalu', '7 hari sebelumnya'])) {
+      return _buildPeriodComparisonAnswer(
+        currentLabel: '7 hari terakhir',
+        currentStart: todayStart.subtract(const Duration(days: 6)),
+        currentEnd: todayStart.add(const Duration(days: 1)),
+        previousLabel: '7 hari sebelumnya',
+        previousStart: todayStart.subtract(const Duration(days: 13)),
+        previousEnd: todayStart.subtract(const Duration(days: 6)),
+      );
+    }
+
+    if (_containsAny(question, ['bulan lalu', '30 hari sebelumnya'])) {
+      return _buildPeriodComparisonAnswer(
+        currentLabel: '30 hari terakhir',
+        currentStart: todayStart.subtract(const Duration(days: 29)),
+        currentEnd: todayStart.add(const Duration(days: 1)),
+        previousLabel: '30 hari sebelumnya',
+        previousStart: todayStart.subtract(const Duration(days: 59)),
+        previousEnd: todayStart.subtract(const Duration(days: 29)),
+      );
+    }
+
+    return _buildTodayComparisonAnswer();
+  }
+
   Future<String> _buildTodayComparisonAnswer() async {
     final now = DateTime.now();
     final todayStart = DateTime(now.year, now.month, now.day);
     final tomorrowStart = todayStart.add(const Duration(days: 1));
     final yesterdayStart = todayStart.subtract(const Duration(days: 1));
 
+    return _buildPeriodComparisonAnswer(
+      currentLabel: 'hari ini',
+      currentStart: todayStart,
+      currentEnd: tomorrowStart,
+      previousLabel: 'kemarin',
+      previousStart: yesterdayStart,
+      previousEnd: todayStart,
+    );
+  }
+
+  Future<String> _buildPeriodComparisonAnswer({
+    required String currentLabel,
+    required DateTime currentStart,
+    required DateTime currentEnd,
+    required String previousLabel,
+    required DateTime previousStart,
+    required DateTime previousEnd,
+  }) async {
     final today = _buildSummary(
       await _transactionService.getTransactionsBetween(
-        todayStart,
-        tomorrowStart,
+        currentStart,
+        currentEnd,
       ),
     );
     final yesterday = _buildSummary(
       await _transactionService.getTransactionsBetween(
-        yesterdayStart,
-        todayStart,
+        previousStart,
+        previousEnd,
       ),
     );
 
     if (today.transactions.isEmpty && yesterday.transactions.isEmpty) {
-      return 'Belum ada transaksi hari ini maupun kemarin untuk dibandingkan.';
+      return 'Belum ada transaksi pada periode $currentLabel maupun $previousLabel untuk dibandingkan.';
     }
 
     final salesDiff = today.sales - yesterday.sales;
     final expenseDiff = today.expenses - yesterday.expenses;
     final netDiff = today.net - yesterday.net;
 
-    return 'Perbandingan hari ini vs kemarin:\n'
+    return 'Perbandingan $currentLabel vs $previousLabel:\n'
         '- Pemasukan: ${CurrencyFormatter.formatRupiah(today.sales)} (${_formatDiff(salesDiff)})\n'
         '- Pengeluaran: ${CurrencyFormatter.formatRupiah(today.expenses)} (${_formatDiff(expenseDiff)})\n'
         '- Bersih: ${CurrencyFormatter.formatRupiah(today.net)} (${_formatDiff(netDiff)})\n\n'
         '${_buildComparisonNote(salesDiff, expenseDiff, netDiff)}';
   }
 
-  _ChatPeriod _resolvePeriod(String question) {
+  _ChatPeriod _resolvePeriod(
+    String question, {
+    String? fallbackQuestion,
+  }) {
+    return _extractPeriod(question) ??
+        _extractPeriod(fallbackQuestion ?? '') ??
+        _defaultPeriod();
+  }
+
+  _ChatPeriod? _extractPeriod(String question) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
+    final normalizedQuestion = question.toLowerCase();
+    final dayMatch = RegExp(r'(\d+)\s*hari').firstMatch(normalizedQuestion);
 
-    if (_containsAny(question, ['minggu', '7 hari', 'pekan'])) {
+    if (_containsAny(normalizedQuestion, ['semua', 'seluruh', 'overall'])) {
+      return _ChatPeriod(
+        label: 'semua data',
+        start: DateTime(2000),
+        end: today.add(const Duration(days: 1)),
+      );
+    }
+
+    if (dayMatch != null) {
+      final days = int.tryParse(dayMatch.group(1) ?? '');
+      if (days != null && days > 0) {
+        return _ChatPeriod(
+          label: '$days hari terakhir',
+          start: today.subtract(Duration(days: days - 1)),
+          end: today.add(const Duration(days: 1)),
+        );
+      }
+    }
+
+    if (_containsAny(normalizedQuestion, ['minggu lalu', 'pekan lalu'])) {
+      return _ChatPeriod(
+        label: '7 hari sebelumnya',
+        start: today.subtract(const Duration(days: 13)),
+        end: today.subtract(const Duration(days: 6)),
+      );
+    }
+
+    if (_containsAny(normalizedQuestion, ['bulan lalu'])) {
+      return _ChatPeriod(
+        label: '30 hari sebelumnya',
+        start: today.subtract(const Duration(days: 59)),
+        end: today.subtract(const Duration(days: 29)),
+      );
+    }
+
+    if (_containsAny(normalizedQuestion, ['minggu ini', 'minggu', '7 hari', 'pekan'])) {
       return _ChatPeriod(
         label: '7 hari terakhir',
         start: today.subtract(const Duration(days: 6)),
@@ -278,7 +571,7 @@ class AiChatService {
       );
     }
 
-    if (_containsAny(question, ['bulan', '30 hari'])) {
+    if (_containsAny(normalizedQuestion, ['bulan ini', 'bulan', '30 hari'])) {
       return _ChatPeriod(
         label: '30 hari terakhir',
         start: today.subtract(const Duration(days: 29)),
@@ -286,7 +579,7 @@ class AiChatService {
       );
     }
 
-    if (_containsAny(question, ['kemarin'])) {
+    if (_containsAny(normalizedQuestion, ['kemarin'])) {
       return _ChatPeriod(
         label: 'kemarin',
         start: today.subtract(const Duration(days: 1)),
@@ -294,6 +587,16 @@ class AiChatService {
       );
     }
 
+    if (_containsAny(normalizedQuestion, ['hari ini', 'sekarang', 'today'])) {
+      return _defaultPeriod();
+    }
+
+    return null;
+  }
+
+  _ChatPeriod _defaultPeriod() {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
     return _ChatPeriod(
       label: 'hari ini',
       start: today,
@@ -342,6 +645,7 @@ class AiChatService {
         '- Pemasukan: ${CurrencyFormatter.formatRupiah(summary.sales)}\n'
         '- Pengeluaran: ${CurrencyFormatter.formatRupiah(summary.expenses)}\n'
         '- Bersih: ${CurrencyFormatter.formatRupiah(summary.net)}\n'
+        '- Jumlah transaksi: ${summary.transactions.length}\n'
         '- Rasio pengeluaran: $ratio% dari pemasukan\n\n'
         '$status';
   }
@@ -371,7 +675,7 @@ class AiChatService {
         ? 'Belum ada pengeluaran tercatat.'
         : 'Pengeluaran terbesar adalah ${biggest.description} sebesar ${CurrencyFormatter.formatRupiah(biggest.amount)}.';
 
-    return 'Total pengeluaran $label adalah ${CurrencyFormatter.formatRupiah(summary.expenses)} dari ${summary.expenseCount} transaksi. $detail';
+    return 'Total pengeluaran $label adalah ${CurrencyFormatter.formatRupiah(summary.expenses)} dari ${summary.expenseCount} transaksi. Rata-rata pengeluaran per transaksi sekitar ${CurrencyFormatter.formatRupiah(summary.averageExpensePerTransaction)}. $detail';
   }
 
   String _buildSalesAnswer(String label, _CashSummary summary) {
@@ -380,7 +684,7 @@ class AiChatService {
         ? 'Belum ada pemasukan tercatat.'
         : 'Pemasukan terbesar adalah ${biggest.description} sebesar ${CurrencyFormatter.formatRupiah(biggest.amount)}.';
 
-    return 'Total pemasukan $label adalah ${CurrencyFormatter.formatRupiah(summary.sales)} dari ${summary.saleCount} transaksi. $detail';
+    return 'Total pemasukan $label adalah ${CurrencyFormatter.formatRupiah(summary.sales)} dari ${summary.saleCount} transaksi. Rata-rata pemasukan per transaksi sekitar ${CurrencyFormatter.formatRupiah(summary.averageSalePerTransaction)}. $detail';
   }
 
   String _buildNetAnswer(String label, _CashSummary summary) {
@@ -392,7 +696,12 @@ class AiChatService {
   }
 
   String _buildCapitalSuggestion(String label, _CashSummary summary) {
-    final suggestedCapital = (summary.sales * 0.10).round();
+    final baselineCapital =
+        ((summary.averageSalesPerActiveDay * 0.35) + (summary.expenses * 0.20))
+            .round();
+    final suggestedCapital = baselineCapital <= 0
+        ? (summary.sales * 0.10).round()
+        : baselineCapital;
     final extraNote = summary.expenses > summary.sales
         ? 'Karena pengeluaran lebih besar dari pemasukan, tahan belanja tambahan dulu kecuali barang cepat habis.'
         : 'Angka ini bisa dipakai sebagai patokan ringan, lalu sesuaikan dengan stok yang benar-benar menipis.';
@@ -441,6 +750,113 @@ class AiChatService {
     }
 
     return lines.join('\n');
+  }
+
+  String _buildAnomalyAnswer(String label, _CashSummary summary) {
+    if (summary.expenseCount == 0) {
+      return 'Belum ada pengeluaran di $label, jadi belum terlihat pola pengeluaran yang janggal.';
+    }
+
+    final biggestExpense = summary.biggestExpense;
+    final biggestShare = biggestExpense == null || summary.expenses == 0
+        ? 0
+        : ((biggestExpense.amount / summary.expenses) * 100).round();
+
+    final notes = <String>[
+      'Total pengeluaran $label mencapai ${CurrencyFormatter.formatRupiah(summary.expenses)}.',
+    ];
+
+    if (biggestExpense != null) {
+      notes.add(
+        'Pengeluaran terbesar ada di ${biggestExpense.description} sebesar ${CurrencyFormatter.formatRupiah(biggestExpense.amount)} atau sekitar $biggestShare% dari total pengeluaran.',
+      );
+    }
+
+    if (summary.expenseRatio >= 70) {
+      notes.add('Rasio pengeluaran terhadap pemasukan sudah tinggi di ${summary.expenseRatio}%, jadi ada tanda biaya mulai membengkak.');
+    } else if (biggestShare >= 45) {
+      notes.add('Biaya cukup terkonsentrasi di satu transaksi, jadi item ini paling layak dicek dulu.');
+    } else {
+      notes.add('Belum terlihat lonjakan ekstrem, tapi tetap pantau transaksi terbesar dan belanja yang berulang.');
+    }
+
+    return notes.join(' ');
+  }
+
+  String _buildAverageAnswer(String label, _CashSummary summary) {
+    return 'Rata-rata $label:\n'
+        '- Pemasukan per transaksi: ${CurrencyFormatter.formatRupiah(summary.averageSalePerTransaction)}\n'
+        '- Pengeluaran per transaksi: ${CurrencyFormatter.formatRupiah(summary.averageExpensePerTransaction)}\n'
+        '- Pemasukan per hari aktif: ${CurrencyFormatter.formatRupiah(summary.averageSalesPerActiveDay)}\n'
+        '- Pengeluaran per hari aktif: ${CurrencyFormatter.formatRupiah(summary.averageExpensesPerActiveDay)}';
+  }
+
+  String _buildTransactionCountAnswer(String label, _CashSummary summary) {
+    return 'Jumlah transaksi $label ada ${summary.transactions.length} transaksi, terdiri dari ${summary.saleCount} pemasukan dan ${summary.expenseCount} pengeluaran.';
+  }
+
+  String _buildLatestActivityAnswer(String label, _CashSummary summary) {
+    final latest = summary.latestTransaction;
+    if (latest == null) {
+      return 'Belum ada aktivitas transaksi untuk $label.';
+    }
+
+    final typeLabel = latest.type == 'sale' ? 'pemasukan' : 'pengeluaran';
+    final description = latest.description.isEmpty
+        ? 'Tanpa keterangan'
+        : latest.description;
+
+    return 'Aktivitas terakhir di $label adalah $typeLabel sebesar ${CurrencyFormatter.formatRupiah(latest.amount)} untuk "$description".';
+  }
+
+  String _buildHealthAnswer(String label, _CashSummary summary) {
+    final notes = <String>[];
+
+    if (summary.net >= 0) {
+      notes.add('Kas $label masih sehat karena bersihnya positif di ${CurrencyFormatter.formatRupiah(summary.net)}.');
+    } else {
+      notes.add('Kas $label belum sehat karena bersihnya minus ${CurrencyFormatter.formatRupiah(summary.net.abs())}.');
+    }
+
+    if (summary.expenseRatio >= 70) {
+      notes.add('Pengeluaran sudah memakan ${summary.expenseRatio}% dari pemasukan, jadi ruang aman kas mulai tipis.');
+    } else {
+      notes.add('Rasio pengeluaran masih di ${summary.expenseRatio}%, jadi masih cukup terkendali.');
+    }
+
+    return notes.join(' ');
+  }
+
+  String _buildWhyAnswer(String label, _CashSummary summary) {
+    if (summary.transactions.isEmpty) {
+      return 'Aku belum bisa jelaskan penyebabnya karena belum ada transaksi di $label.';
+    }
+
+    if (summary.net < 0 && summary.biggestExpense != null) {
+      return 'Kondisi $label cenderung tertekan karena pengeluaran lebih besar dari pemasukan. Faktor yang paling terasa datang dari ${summary.biggestExpense!.description} sebesar ${CurrencyFormatter.formatRupiah(summary.biggestExpense!.amount)}.';
+    }
+
+    if (summary.expenseRatio >= 70) {
+      return 'Penyebab utamanya kemungkinan rasio pengeluaran yang sudah tinggi, yaitu ${summary.expenseRatio}% dari pemasukan, jadi margin kas jadi sempit.';
+    }
+
+    return 'Sejauh ini kondisi $label masih cukup stabil karena pemasukan masih lebih besar dari pengeluaran.';
+  }
+
+  bool _isCapabilityQuestion(String text) {
+    return _containsAny(text, [
+      'bisa bantu apa',
+      'bisa apa',
+      'fitur apa',
+      'kamu bisa apa',
+      'apa saja yang bisa',
+      'tolong apa',
+      'siapa kamu',
+    ]);
+  }
+
+  String _buildCapabilityAnswer() {
+    return 'Aku bisa bantu baca data kas di C-Kas dengan gaya tanya yang santai juga. Contohnya: ringkas hari ini, cek pengeluaran paling besar, bandingkan dengan kemarin, lihat tren 7 atau 30 hari, cari transaksi janggal, hitung rata-rata, sampai kasih saran modal atau langkah yang perlu diprioritaskan.';
   }
 
   bool _containsAny(String text, List<String> keywords) {
@@ -508,6 +924,23 @@ class AiChatService {
       'beli',
       'catat',
       'nota',
+      'fitur',
+      'bantu',
+      'siapa kamu',
+      'janggal',
+      'aneh',
+      'boros',
+      'rata-rata',
+      'rerata',
+      'average',
+      'aman',
+      'sehat',
+      'detail',
+      'terakhir',
+      'terbaru',
+      'bandingkan',
+      'vs',
+      'versus',
     ];
 
     return _containsAny(normalizedQuestion, relatedKeywords);
@@ -553,7 +986,7 @@ class AiChatService {
   }
 
   String _outOfScopeWarning() {
-    return 'Maaf, aku hanya bisa membantu topik yang terkait aplikasi C-Kas, seperti transaksi, pemasukan, pengeluaran, kas bersih, tren penjualan, modal, dan laporan warung.';
+    return 'Aku paling membantu untuk hal yang terkait C-Kas dan kondisi kas warung, seperti transaksi, pemasukan, pengeluaran, tren, perbandingan periode, modal, dan laporan. Kalau mau, coba tanya seperti "pengeluaran 7 hari terakhir", "apa yang paling boros minggu ini?", atau "bandingkan hari ini dengan kemarin".';
   }
 
   String _formatDiff(int value) {
@@ -623,6 +1056,16 @@ class _CashSummary {
   int get saleCount => transactions.where((tx) => tx.type == 'sale').length;
   int get expenseCount => transactions.where((tx) => tx.type == 'expense').length;
   int get expenseRatio => sales == 0 ? 0 : ((expenses / sales) * 100).round();
+  TransactionModel? get latestTransaction =>
+      transactions.isEmpty ? null : transactions.first;
+  int get averageSalePerTransaction =>
+      saleCount == 0 ? 0 : (sales / saleCount).round();
+  int get averageExpensePerTransaction =>
+      expenseCount == 0 ? 0 : (expenses / expenseCount).round();
+  int get averageSalesPerActiveDay =>
+      activeDayCount == 0 ? 0 : (sales / activeDayCount).round();
+  int get averageExpensesPerActiveDay =>
+      activeDayCount == 0 ? 0 : (expenses / activeDayCount).round();
 
   int get activeDayCount {
     final dates = transactions.map((tx) => tx.createdAt.substring(0, 10)).toSet();
