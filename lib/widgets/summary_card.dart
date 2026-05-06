@@ -24,7 +24,7 @@ class SummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            _buildRow(context, 'Total Penjualan', sales, AppTheme.salesGreen),
+            _buildRow(context, 'Total Pemasukan', sales, AppTheme.salesGreen),
             const SizedBox(height: 8),
             _buildRow(context, 'Total Pengeluaran', expense, AppTheme.expenseRed),
             const Divider(height: 24, thickness: 1),

@@ -47,14 +47,65 @@ class TransactionService {
     };
   }
 
-  Future<List<String>> getTransactionDates() async {
+  Future<List<String>> getTransactionDates({String? monthPrefix}) async {
     final db = await dbService.database;
-    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+    String query = '''
       SELECT DISTINCT substr(created_at, 1, 10) as date 
       FROM transactions 
-      ORDER BY date DESC
-    ''');
+    ''';
+    List<dynamic> args = [];
+
+    if (monthPrefix != null && monthPrefix.isNotEmpty) {
+      query += " WHERE created_at LIKE ? ";
+      args.add('$monthPrefix%');
+    }
+
+    query += " ORDER BY date DESC ";
+
+    final List<Map<String, dynamic>> maps = await db.rawQuery(query, args);
     return maps.map((e) => e['date'] as String).toList();
+  }
+
+  Future<int> getTotalTransactionDays({String? monthPrefix}) async {
+    final db = await dbService.database;
+    String query = '''
+      SELECT COUNT(DISTINCT substr(created_at, 1, 10)) as count 
+      FROM transactions 
+    ''';
+    List<dynamic> args = [];
+
+    if (monthPrefix != null && monthPrefix.isNotEmpty) {
+      query += " WHERE created_at LIKE ? ";
+      args.add('$monthPrefix%');
+    }
+
+    final List<Map<String, dynamic>> result = await db.rawQuery(query, args);
+    if (result.isNotEmpty) {
+      return result.first['count'] as int;
+    }
+    return 0;
+  }
+
+  Future<List<String>> getAvailableMonths() async {
+    final db = await dbService.database;
+    final List<Map<String, dynamic>> maps = await db.rawQuery('''
+      SELECT DISTINCT substr(created_at, 1, 7) as month 
+      FROM transactions 
+      ORDER BY month DESC
+    ''');
+    return maps.map((e) => e['month'] as String).toList();
+  }
+
+  // Cari transaksi berdasarkan deskripsi
+  Future<List<TransactionModel>> searchTransactions(String query) async {
+    final db = await dbService.database;
+    final List<Map<String, dynamic>> maps = await db.query(
+      'transactions',
+      where: 'description LIKE ?',
+      whereArgs: ['%$query%'],
+      orderBy: 'created_at DESC',
+    );
+    return maps.map((e) => TransactionModel.fromMap(e)).toList();
   }
 
   Future<void> replaceDailyTransactions(
@@ -86,6 +137,16 @@ class TransactionService {
     final db = await dbService.database;
     await db.delete('transactions',
         where: 'created_at LIKE ?', whereArgs: ['$datePrefix%']);
+  }
+
+  // Hapus satu transaksi berdasarkan ID
+  Future<int> deleteTransaction(int id) async {
+    final db = await LocalDbService.instance.database;
+    return await db.delete(
+      'transactions',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 
   // Tambahkan di dalam class TransactionService Anda
@@ -177,4 +238,19 @@ class TransactionService {
 
     return maps.map((e) => TransactionModel.fromMap(e)).toList();
   }
+
+  // Menghapus data transaksi yang sudah lewat dari 3 bulan
+  Future<void> deleteOldTransactions() async {
+    final db = await dbService.database;
+    final now = DateTime.now();
+    final threeMonthsAgo =
+        DateTime(now.year, now.month - 3, now.day).toIso8601String();
+
+    await db.delete(
+      'transactions',
+      where: 'created_at < ?',
+      whereArgs: [threeMonthsAgo],
+    );
+  }
+
 }

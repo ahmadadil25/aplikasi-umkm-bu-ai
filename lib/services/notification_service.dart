@@ -27,7 +27,7 @@ class NotificationService {
       notificationSettings: NotificationSettings(
         title: title,
         body: body,
-        stopButton: 'Matikan Alarm', 
+        stopButton: 'Matikan Pengingat', 
       ),
       warningNotificationOnKill: Platform.isIOS,
       androidFullScreenIntent: true,

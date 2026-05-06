@@ -116,7 +116,7 @@ class _AlarmRingPageState extends State<AlarmRingPage> {
                     elevation: 4,
                   ),
                   child: const Text(
-                    'MATIKAN ALARM',
+                    'MATIKAN PENGINGAT',
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                 ),
